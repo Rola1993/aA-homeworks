@@ -20,13 +20,32 @@ class Play
   end
 
   def self.find_by_title(title)
-    data = PlayDBConnection.instance.execute("SELECT * FROM plays")
-    data.map {|datum| Play.new(datum) if datum['title'] == title}
+    data = PlayDBConnection.instance.execute(<<SQL, title)
+      SELECT
+        *
+      FROM
+        plays
+      WHERE
+        title = ?
+      SQL
+      return nil unless play.length > 0
+      Play.new(data.first)
   end
 
   def self.find_by_playwright(name)
-    data = PlayDBConnection.instance.execute("SELECT * FROM plays JOIN playwright ON plays.id = playwright.id")
-    data.map {|datum| Play.new(datum) if datum['name'] == name}
+    playwright = Playwright.find_by_name(name)
+    raise "#{name} not found in DB" unless playwright
+
+    data = PlayDBConnection.instance.execute(<<SQL, playwright.id)
+      SELECT
+        *
+      FROM
+        plays
+      WHERE
+        playwright_id = ?
+      SQL
+      return nil unless play.length > 0
+      data.map {|play| Play.new(play)}
   end
 
   def initialize(options)
@@ -62,22 +81,31 @@ class Play
 end
 
 class Playwright
-  attr_accessor :id, :name, :birth_year
+  attr_accessor :name, :birth_year
+  attr_reader :id
 
   def self.all
     data = PlayDBConnection.instance.execute("SELECT * FROM playwrights")
     data.map { |datum| Playwright.new(datum) }
   end
 
-  def new(options)
+  def initialize(options)
     @id = options['id']
     @name = options['name']
     @birth_year = options['birth_year']
   end
 
   def self.find_by_name(name)
-    data = PlayDBConnection.instance.execute("SELECT * FROM playwrights")
-    data.select! {|datum| Playwright.new(datum) if datum['name'] == name}
+    data = PlayDBConnection.instance.execute(<<SQL, name)
+      SELECT
+        *
+      FROM
+        playwright
+      WHERE
+        name = ?
+      SQL
+      return nil unless data.length > 0
+      Play.new(data.first)
   end
 
   def create
@@ -103,9 +131,17 @@ class Playwright
     SQL
   end
 
-  def self.get_plays(name)
-    data = PlayDBConnection.instance.execute("SELECT * FROM plays JOIN playwright ON plays.id = playwright.id")
-    data.map {|datum| Play.new(datum) if datum['name'] == name}
+  def get_plays
+    raise "#{self} not in database" unless @id
+    data = PlayDBConnection.instance.execute(<<SQL, @id)
+      SELECT
+        *
+      FROM
+        plays
+      WHERE
+        playwright_id = ?
+      SQL
+      data.map{|play| Play.new(play)}
   end
 
 end
