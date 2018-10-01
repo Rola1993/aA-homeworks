@@ -106,5 +106,5 @@ function isPrime(number) {
 
 
 function sumOfNPrimes(n) {
-  
+
 }
